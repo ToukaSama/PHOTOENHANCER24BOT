@@ -19,7 +19,7 @@ from youtubesearchpython import SearchVideos
 from yt_dlp import YoutubeDL
 import cv2
 import numpy as np
-
+from PIL import Image, ImageDraw
 
 
 INFO_TXT = """
