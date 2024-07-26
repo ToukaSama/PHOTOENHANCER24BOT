@@ -17,6 +17,8 @@ from pyrogram.types import Message
 from youtube_search import YoutubeSearch
 from youtubesearchpython import SearchVideos
 from yt_dlp import YoutubeDL
+import cv2
+import numpy as np
 
 
 
@@ -958,6 +960,39 @@ async def start_giveaway(client: Client, message: Message):
     winner_id, winner_username = random.choice(members)
 
     await message.reply(f"🎉 Congratulations! The winner is @{winner_username} (ID: {winner_id}). 🎉")
+
+
+
+@app.on_message(filters.command("removetext"))
+async def removetext_command(client, message):
+    if message.reply_to_message:
+        photo = await message.reply_to_message.download()
+        clean_photo = remove_text_from_photo(photo)
+        clean_photo_path = "clean_photo_" + str(message.chat.id) + ".png"
+        clean_photo.save(clean_photo_path)
+        await message.reply_photo(
+            photo=clean_photo_path,
+            caption="Text removed from photo!"
+        )
+        os.remove(clean_photo_path)
+    else:
+        await message.reply_text("Please reply to an image to remove text.")
+
+# Function to remove text from a photo
+def remove_text_from_photo(image_path):
+    image = cv2.imread(image_path)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
+    dilated = cv2.dilate(binary, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        image[y:y+h, x:x+w] = cv2.inpaint(image[y:y+h, x:x+w], binary[y:y+h, x:x+w], inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+
+    return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 # Run the bot
 app.run()
