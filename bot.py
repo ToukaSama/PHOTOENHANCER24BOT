@@ -962,12 +962,13 @@ async def start_giveaway(client: Client, message: Message):
     await message.reply(f"🎉 Congratulations! The winner is @{winner_username} (ID: {winner_id}). 🎉")
 
 
-
 @app.on_message(filters.command("removetext"))
 async def removetext_command(client, message):
     if message.reply_to_message:
         photo = await message.reply_to_message.download()
-        clean_photo = remove_text_from_photo(photo)
+        brush_size = 20  # Size of the brush
+        mask = create_mask(photo, brush_size)
+        clean_photo = remove_text_from_photo(photo, mask)
         clean_photo_path = "clean_photo_" + str(message.chat.id) + ".png"
         clean_photo.save(clean_photo_path)
         await message.reply_photo(
@@ -978,21 +979,24 @@ async def removetext_command(client, message):
     else:
         await message.reply_text("Please reply to an image to remove text.")
 
-# Function to remove text from a photo
-def remove_text_from_photo(image_path):
+def create_mask(image_path, brush_size):
+    image = Image.open(image_path)
+    mask = Image.new('L', image.size, 0)
+    draw = ImageDraw.Draw(mask)
+
+    # Define the areas to be brushed out, here it is manually set for demonstration
+    # In a real scenario, this should be an interactive selection
+    draw.rectangle([50, 50, 150, 150], fill=255)  # Example area
+
+    return np.array(mask)
+
+def remove_text_from_photo(image_path, mask):
     image = cv2.imread(image_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
+    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+    inpainted_image = cv2.inpaint(image, mask[:, :, 0], inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+    return Image.fromarray(cv2.cvtColor(inpainted_image, cv2.COLOR_BGR2RGB))
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
-    dilated = cv2.dilate(binary, kernel, iterations=1)
 
-    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        image[y:y+h, x:x+w] = cv2.inpaint(image[y:y+h, x:x+w], binary[y:y+h, x:x+w], inpaintRadius=3, flags=cv2.INPAINT_TELEA)
-
-    return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 # Run the bot
 app.run()
