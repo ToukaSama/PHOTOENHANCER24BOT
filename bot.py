@@ -17,9 +17,7 @@ from pyrogram.types import Message
 from youtube_search import YoutubeSearch
 from youtubesearchpython import SearchVideos
 from yt_dlp import YoutubeDL
-import cv2
-import numpy as np
-import pytesseract
+
 
 
 INFO_TXT = """
@@ -962,47 +960,6 @@ async def start_giveaway(client: Client, message: Message):
     await message.reply(f"🎉 Congratulations! The winner is @{winner_username} (ID: {winner_id}). 🎉")
 
 
-
-@app.on_message(filters.command("removetext"))
-async def removetext_command(client, message):
-    if message.reply_to_message:
-        # Inform the user that the process is in progress
-        progress_message = await message.reply_text("Processing image, please wait...")
-
-        photo = await message.reply_to_message.download()
-        clean_photo = remove_text_from_photo(photo)
-        clean_photo_path = "clean_photo_" + str(message.chat.id) + ".png"
-        clean_photo.save(clean_photo_path)
-        
-        # Send the cleaned photo to the user
-        await message.reply_photo(
-            photo=clean_photo_path,
-            caption="Text removed from photo!"
-        )
-        
-        # Remove the temporary files and the progress message
-        os.remove(clean_photo_path)
-        await progress_message.delete()
-    else:
-        await message.reply_text("Please reply to an image to remove text.")
-
-# Function to remove text from a photo
-def remove_text_from_photo(image_path):
-    image = cv2.imread(image_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Use pytesseract to detect text boxes
-    d = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
-    n_boxes = len(d['level'])
-    mask = np.zeros_like(gray)
-
-    for i in range(n_boxes):
-        (x, y, w, h) = (d['left'][i], d['top'][i], d['width'][i], d['height'][i])
-        mask[y:y+h, x:x+w] = 255
-
-    # Inpaint the image
-    inpainted_image = cv2.inpaint(image, mask, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
-    return Image.fromarray(cv2.cvtColor(inpainted_image, cv2.COLOR_BGR2RGB))
 
 # Run the bot
 app.run()
